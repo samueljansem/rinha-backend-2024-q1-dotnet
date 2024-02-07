@@ -1,3 +1,4 @@
+
 using System.Data;
 
 public static class ClientEndpoints
@@ -36,8 +37,24 @@ public static class ClientEndpoints
         });
 
 
-        app.MapPost("clientes/{id}/transacoes", async (SqlConnectionFactory connectionFactory, int id, CriarTransacaoRequest request) =>
+        app.MapPost("clientes/{id}/transacoes", async (SqlConnectionFactory connectionFactory, int id, HttpRequest r) =>
         {
+            CriarTransacaoRequest? request;
+
+            try
+            {
+                request = await r.ReadFromJsonAsync<CriarTransacaoRequest>();
+            }
+            catch
+            {
+                return Results.UnprocessableEntity("Requisição inválida.");
+            }
+
+            if (request == null)
+            {
+                return Results.UnprocessableEntity("Requisição inválida.");
+            }
+
             if (request.Valor <= 0)
             {
                 return Results.UnprocessableEntity("Valor inválido.");
@@ -57,13 +74,10 @@ public static class ClientEndpoints
 
             await conn.OpenAsync();
 
-            using var transaction = await conn.BeginTransactionAsync(IsolationLevel.ReadCommitted);
-
             var (saldo, limite) = await ClientService.GetCliente(conn, id);
 
             if (saldo == null || limite == null)
             {
-                await transaction.RollbackAsync();
                 return Results.NotFound();
             }
 
@@ -71,7 +85,6 @@ public static class ClientEndpoints
             {
                 if (saldo - request.Valor < -limite)
                 {
-                    await transaction.RollbackAsync();
                     return Results.UnprocessableEntity("Saldo insuficiente.");
                 }
             }

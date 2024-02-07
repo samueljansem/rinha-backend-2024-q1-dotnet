@@ -1,5 +1,3 @@
-CREATE TYPE "tipo_transacao" AS ENUM ('c', 'd');
-
 CREATE TABLE
     "clientes" (
         "id" SERIAL NOT NULL,
@@ -13,7 +11,7 @@ CREATE TABLE
         "id" SERIAL NOT NULL,
         "valor" INTEGER NOT NULL,
         "id_cliente" INTEGER NOT NULL,
-        "tipo" "tipo_transacao" NOT NULL,
+        "tipo" VARCHAR(1) NOT NULL,
         "descricao" VARCHAR(10) NOT NULL,
         "realizada_em" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT "transacoes_pkey" PRIMARY KEY ("id")
