@@ -78,12 +78,8 @@ public static class ClientEndpoints
 
             saldo += request.Tipo == 'd' ? -request.Valor : request.Valor;
 
-            await Task.WhenAll(
-                ClientService.AtualizarSaldo(conn, id, (int)saldo),
-                ClientService.CriarTransacao(conn, id, request)
-            );
-
-            await transaction.CommitAsync();
+            await ClientService.AtualizarSaldo(conn, id, (int)saldo);
+            await ClientService.CriarTransacao(conn, id, request);
 
             var response = new CriarTransacaoResponse
             {
