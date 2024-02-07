@@ -142,7 +142,7 @@ app.MapPost("clientes/{id}/transacoes", async (IConfiguration configuration, Htt
     ";
     using var cmd = new NpgsqlCommand(sql, conn);
     cmd.Parameters.AddWithValue("id_cliente", id);
-    cmd.Parameters.AddWithValue("valor", request.Tipo == 'd' ? -request.Valor : request.Valor);
+    cmd.Parameters.AddWithValue("valor", request.Valor);
     cmd.Parameters.AddWithValue("tipo", request.Tipo);
     cmd.Parameters.AddWithValue("descricao", request.Descricao);
     cmd.Parameters.AddWithValue("realizada_em", DateTime.UtcNow);
