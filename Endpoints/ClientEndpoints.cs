@@ -81,23 +81,17 @@ public static class ClientEndpoints
                 return Results.NotFound();
             }
 
-            if (request.Tipo == 'd')
+            var (novoSaldo, novoLimite) = await ClientService.CriarTransacaoEAtualizarSaldo(conn, id, request);
+
+            if (novoSaldo == null || novoLimite == null)
             {
-                if (saldo - request.Valor < -limite)
-                {
-                    return Results.UnprocessableEntity("Saldo insuficiente.");
-                }
+                return Results.UnprocessableEntity("Saldo insuficiente.");
             }
-
-            saldo += request.Tipo == 'd' ? -request.Valor : request.Valor;
-
-            await ClientService.AtualizarSaldo(conn, id, (int)saldo);
-            await ClientService.CriarTransacao(conn, id, request);
 
             var response = new CriarTransacaoResponse
             {
-                Saldo = (int)saldo,
-                Limite = (int)limite
+                Saldo = (int)novoSaldo,
+                Limite = (int)novoLimite
             };
 
             return Results.Ok(response);

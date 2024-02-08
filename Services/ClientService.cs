@@ -75,39 +75,32 @@ public static class ClientService
     return transacoes;
   }
 
-  public static async Task<int> AtualizarSaldo(NpgsqlConnection conn, int id, int valor)
+  public static async Task<(int?, int?)> CriarTransacaoEAtualizarSaldo(NpgsqlConnection conn, int id, CriarTransacaoRequest request)
   {
-    const string sqlAtualizarSaldo = @"
-      UPDATE clientes
-      SET saldo = @valor
-      WHERE id = @id;
-    ";
+    using var cmd = new NpgsqlCommand("CALL criar_transacao_e_atualizar_saldo(@id_cliente, @valor, @tipo, @descricao, @realizada_em)", conn);
 
-    using (var cmdAtualizarSaldo = new NpgsqlCommand(sqlAtualizarSaldo, conn))
+    cmd.Parameters.AddWithValue("id_cliente", id);
+    cmd.Parameters.AddWithValue("valor", request.Valor);
+    cmd.Parameters.AddWithValue("tipo", request.Tipo);
+    cmd.Parameters.AddWithValue("descricao", request.Descricao);
+    cmd.Parameters.AddWithValue("realizada_em", DateTime.UtcNow);
+
+    using var reader = await cmd.ExecuteReaderAsync();
+
+    try
     {
-      cmdAtualizarSaldo.Parameters.AddWithValue("id", id);
-      cmdAtualizarSaldo.Parameters.AddWithValue("valor", valor);
+      if (await reader.ReadAsync())
+      {
+        var novoSaldo = reader.GetInt32(0);
+        var limite = reader.GetInt32(1);
+        return (novoSaldo, limite);
+      }
 
-      return await cmdAtualizarSaldo.ExecuteNonQueryAsync();
+      return (null, null);
     }
-  }
-
-  public static async Task<int> CriarTransacao(NpgsqlConnection conn, int id, CriarTransacaoRequest request)
-  {
-    const string sqlInserirTransacao = @"
-      INSERT INTO transacoes (id_cliente, valor, tipo, descricao, realizada_em)
-      VALUES (@id, @valor, @tipo, @descricao, @realizada_em);
-    ";
-
-    using (var cmdInserirTransacao = new NpgsqlCommand(sqlInserirTransacao, conn))
+    catch (InvalidCastException)
     {
-      cmdInserirTransacao.Parameters.AddWithValue("id", id);
-      cmdInserirTransacao.Parameters.AddWithValue("valor", request.Valor);
-      cmdInserirTransacao.Parameters.AddWithValue("tipo", request.Tipo);
-      cmdInserirTransacao.Parameters.AddWithValue("descricao", request.Descricao);
-      cmdInserirTransacao.Parameters.AddWithValue("realizada_em", DateTime.UtcNow);
-
-      return await cmdInserirTransacao.ExecuteNonQueryAsync();
+      return (null, null);
     }
   }
 }
