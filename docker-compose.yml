@@ -12,7 +12,7 @@ services:
       resources:
         limits:
           cpus: '0.20'
-          memory: '50MB'
+          memory: '20MB'
 
   api02:
     <<: *api
@@ -31,11 +31,13 @@ services:
       - '5432:5432'
     volumes:
       - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./config/postgres.conf:/docker-entrypoint-initdb.d/postgres.conf
+    command: postgres -c config_file=/docker-entrypoint-initdb.d/postgres.conf
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: '350MB'
+          cpus: '0.9'
+          memory: '490MB'
 
   nginx:
     image: nginx:latest
