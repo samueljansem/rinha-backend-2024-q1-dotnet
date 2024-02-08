@@ -5,7 +5,7 @@ CREATE TABLE
         "limite" INTEGER NOT NULL
     );
 
-CREATE TABLE
+CREATE UNLOGGED TABLE
     "transacoes" (
         "id" SERIAL PRIMARY KEY,
         "valor" INTEGER NOT NULL,
@@ -15,6 +15,8 @@ CREATE TABLE
         "realizada_em" TIMESTAMP WITH TIME ZONE NOT NULL,
         CONSTRAINT "fk_transacoes_id_cliente" FOREIGN KEY ("id_cliente") REFERENCES "clientes" ("id")
     );
+
+ALTER TABLE "transacoes" SET (autovacuum_enabled = false);
 
 INSERT INTO
     clientes (id, saldo, limite)
