@@ -1,32 +1,29 @@
 CREATE TABLE
     "clientes" (
-        "id" SERIAL NOT NULL,
+        "id" INT PRIMARY KEY,
         "saldo" INTEGER NOT NULL,
-        "limite" INTEGER NOT NULL,
-        CONSTRAINT "clientes_pkey" PRIMARY KEY ("id")
+        "limite" INTEGER NOT NULL
     );
 
-CREATE TABLE
+CREATE UNLOGGED TABLE
     "transacoes" (
-        "id" SERIAL NOT NULL,
+        "id" SERIAL PRIMARY KEY,
         "valor" INTEGER NOT NULL,
         "id_cliente" INTEGER NOT NULL,
         "tipo" VARCHAR(1) NOT NULL,
         "descricao" VARCHAR(10) NOT NULL,
         "realizada_em" TIMESTAMP WITH TIME ZONE NOT NULL,
-        CONSTRAINT "transacoes_pkey" PRIMARY KEY ("id")
+        CONSTRAINT "fk_transacoes_id_cliente" FOREIGN KEY ("id_cliente") REFERENCES "clientes" ("id")
     );
 
-ALTER TABLE "transacoes" ADD CONSTRAINT "transacoes_id_cliente_fkey" FOREIGN KEY ("id_cliente") REFERENCES "clientes" ("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
 INSERT INTO
-    clientes (saldo, limite)
+    clientes (id, saldo, limite)
 VALUES
-    (0, 100000),
-    (0, 80000),
-    (0, 1000000),
-    (0, 10000000),
-    (0, 500000);
+    (1, 0, 100000),
+    (2, 0, 80000),
+    (3, 0, 1000000),
+    (4, 0, 10000000),
+    (5, 0, 500000);
 
 CREATE OR REPLACE PROCEDURE criar_transacao_e_atualizar_saldo(
     id_cliente INTEGER,
