@@ -5,7 +5,7 @@ CREATE TABLE
         "limite" INTEGER NOT NULL
     );
 
-CREATE UNLOGGED TABLE
+CREATE TABLE
     "transacoes" (
         "id" SERIAL PRIMARY KEY,
         "valor" INTEGER NOT NULL,
