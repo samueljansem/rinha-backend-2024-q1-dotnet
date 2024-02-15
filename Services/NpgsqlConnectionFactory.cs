@@ -1,7 +1,12 @@
 using Microsoft.Extensions.Configuration;
 using Npgsql;
 
-public class NpgsqlConnectionFactory
+public interface INpgsqlConnectionFactory
+{
+    NpgsqlConnection Create();
+}
+
+public class NpgsqlConnectionFactory : INpgsqlConnectionFactory
 {
     private readonly IConfiguration _configuration;
 
