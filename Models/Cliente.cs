@@ -1,18 +1,26 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.Extensions.ObjectPool;
 
-[Table("clientes")]
-public class Cliente
+public class Cliente : IResettable
 {
-  [Key]
-  [Column("id")]
   public int Id { get; set; }
-
-  [Column("saldo")]
+  public int Limite { get; set; }
   public int Saldo { get; set; }
 
-  [Column("limite")]
-  public int Limite { get; set; }
+  public bool TryReset()
+  {
+    Id = 0;
+    Limite = 0;
+    Saldo = 0;
+    return true;
+  }
+}
 
-  public IEnumerable<Transacao> Transacoes { get; set; }
+public class ClientePoolPolicy : IPooledObjectPolicy<Cliente>
+{
+  public Cliente Create() => new Cliente();
+  public bool Return(Cliente obj)
+  {
+    obj.TryReset();
+    return true;
+  }
 }

@@ -1,106 +1,151 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Npgsql;
 
-public static class ClientService
+public interface IClientService
 {
+  Task<Cliente?> GetCliente(NpgsqlConnection conn, int id);
+  Task<IEnumerable<Transacao>> GetTransacoes(NpgsqlConnection conn, int id);
+  Task<(int, int)?> CriarTransacaoEAtualizarSaldo(NpgsqlConnection conn, int id, CriarTransacaoRequest request);
+}
 
-  public static async Task<(int?, int?)> GetCliente(NpgsqlConnection conn, int id)
+public class ClientService : IClientService
+{
+  private readonly IObjectPoolService _pool;
+  private readonly ICommandPoolService _commandPool;
+
+  public ClientService(IObjectPoolService pool, ICommandPoolService commandPool)
   {
-    const string sqlSaldo = @"
-      SELECT
-          c.saldo as cliente_saldo,
-          c.limite as cliente_limite
-      FROM
-          clientes c
-      WHERE
-          c.id = @id;
-    ";
-
-    int saldo;
-    int limite;
-
-    using (var cmdSaldo = new NpgsqlCommand(sqlSaldo, conn))
-    {
-      cmdSaldo.Parameters.AddWithValue("id", id);
-
-      using (var reader = await cmdSaldo.ExecuteReaderAsync())
-      {
-        if (!await reader.ReadAsync()) return (null, null);
-
-        saldo = reader.GetInt32(0);
-        limite = reader.GetInt32(1);
-      }
-    }
-
-    return (saldo, limite);
+    _pool = pool;
+    _commandPool = commandPool;
   }
 
-  public static async Task<IEnumerable<TransacaoDTO>> GetTransacoes(NpgsqlConnection conn, int id)
+  public async Task<Cliente?> GetCliente(NpgsqlConnection conn, int id)
   {
-    const string sqlTransacoes = @"
+    const string sql = @"
       SELECT
-          t.valor,
-          t.tipo,
-          t.descricao,
-          t.realizada_em
+          saldo,
+          limite
       FROM
-          transacoes t
+          clientes
       WHERE
-          t.id_cliente = @id
-      ORDER BY
-          t.realizada_em DESC
-      LIMIT 10;
+          id = @id;
     ";
 
-    var transacoes = new List<TransacaoDTO>();
-
-    using (var cmdTransacoes = new NpgsqlCommand(sqlTransacoes, conn))
-    {
-      cmdTransacoes.Parameters.AddWithValue("id", id);
-
-      using (var readerTransacoes = await cmdTransacoes.ExecuteReaderAsync())
-      {
-        while (await readerTransacoes.ReadAsync())
-        {
-          transacoes.Add(new TransacaoDTO
-          {
-            Valor = readerTransacoes.GetInt32(0),
-            Tipo = readerTransacoes.GetChar(1),
-            Descricao = readerTransacoes.GetString(2),
-            RealizadaEm = readerTransacoes.GetDateTime(3)
-          });
-        }
-      }
-    }
-
-    return transacoes;
-  }
-
-  public static async Task<(int?, int?)> CriarTransacaoEAtualizarSaldo(NpgsqlConnection conn, int id, CriarTransacaoRequest request)
-  {
-    using var cmd = new NpgsqlCommand("CALL criar_transacao_e_atualizar_saldo(@id_cliente, @valor, @tipo, @descricao, @realizada_em)", conn);
-
-    cmd.Parameters.AddWithValue("id_cliente", id);
-    cmd.Parameters.AddWithValue("valor", request.Valor);
-    cmd.Parameters.AddWithValue("tipo", request.Tipo);
-    cmd.Parameters.AddWithValue("descricao", request.Descricao);
-    cmd.Parameters.AddWithValue("realizada_em", DateTime.UtcNow);
-
-    using var reader = await cmd.ExecuteReaderAsync();
+    var cmd = _commandPool.RentCommand(conn, sql);
 
     try
     {
+      cmd.Parameters.AddWithValue("id", id);
+
+      await cmd.PrepareAsync();
+
+      using var reader = await cmd.ExecuteReaderAsync();
+
       if (await reader.ReadAsync())
       {
-        var novoSaldo = reader.GetInt32(0);
-        var limite = reader.GetInt32(1);
-        return (novoSaldo, limite);
+        var cliente = _pool.Rent<Cliente>();
+
+        cliente.Id = id;
+        cliente.Saldo = reader.GetInt32(0);
+        cliente.Limite = reader.GetInt32(1);
+
+
+        return cliente;
       }
 
-      return (null, null);
+      return null;
     }
-    catch (InvalidCastException)
+    finally
     {
-      return (null, null);
+      _commandPool.ReturnCommand(cmd);
+    }
+  }
+
+  public async Task<IEnumerable<Transacao>> GetTransacoes(NpgsqlConnection conn, int id)
+  {
+    const string sql = @"
+      SELECT
+          valor,
+          tipo,
+          descricao,
+          realizada_em
+      FROM
+          transacoes
+      WHERE
+          id_cliente = @id
+      ORDER BY
+          realizada_em DESC
+      LIMIT 10;
+    ";
+
+    var transacoes = new List<Transacao>(10);
+
+    var cmd = _commandPool.RentCommand(conn, sql);
+
+    try
+    {
+      cmd.Parameters.AddWithValue("id", id);
+
+      await cmd.PrepareAsync();
+
+      using var reader = await cmd.ExecuteReaderAsync();
+
+      while (await reader.ReadAsync())
+      {
+        var transacao = _pool.Rent<Transacao>();
+
+        transacao.Valor = reader.GetInt32(0);
+        transacao.Tipo = reader.GetChar(1);
+        transacao.Descricao = reader.GetString(2);
+        transacao.RealizadaEm = reader.GetDateTime(3);
+
+        transacoes.Add(transacao);
+      }
+
+      return transacoes;
+    }
+    finally
+    {
+      _commandPool.ReturnCommand(cmd);
+    }
+  }
+
+  public async Task<(int, int)?> CriarTransacaoEAtualizarSaldo(NpgsqlConnection conn, int id, CriarTransacaoRequest request)
+  {
+    var sql = "CALL criar_transacao_e_atualizar_saldo(@id_cliente, @valor, @tipo, @descricao, @realizada_em);";
+
+    var cmd = _commandPool.RentCommand(conn, sql);
+
+    try
+    {
+      cmd.Parameters.AddWithValue("id_cliente", id);
+      cmd.Parameters.AddWithValue("valor", request.Valor);
+      cmd.Parameters.AddWithValue("tipo", request.Tipo);
+      cmd.Parameters.AddWithValue("descricao", request.Descricao);
+      cmd.Parameters.AddWithValue("realizada_em", DateTime.UtcNow);
+
+      await cmd.PrepareAsync();
+
+      using var reader = await cmd.ExecuteReaderAsync();
+
+      if (!await reader.ReadAsync()) return null;
+
+      try
+      {
+        var saldo = reader.GetInt32(0);
+        var limite = reader.GetInt32(1);
+        return (saldo, limite);
+      }
+      catch (InvalidCastException)
+      {
+        return null;
+      }
+    }
+    finally
+    {
+      _commandPool.ReturnCommand(cmd);
     }
   }
 }
