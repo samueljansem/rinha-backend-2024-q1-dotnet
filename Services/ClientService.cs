@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Npgsql;
 
@@ -12,7 +13,6 @@ public interface IClientService
 
 public class ClientService : IClientService
 {
-
   public async Task<Cliente?> GetCliente(NpgsqlConnection conn, int id)
   {
     const string sql = @"
@@ -28,8 +28,6 @@ public class ClientService : IClientService
     using var cmd = new NpgsqlCommand(sql, conn);
 
     cmd.Parameters.AddWithValue("id", id);
-
-    await cmd.PrepareAsync();
 
     using var reader = await cmd.ExecuteReaderAsync();
 
@@ -66,16 +64,16 @@ public class ClientService : IClientService
       LIMIT 10;
     ";
 
-    var transacoes = new List<Transacao>(10);
-
 
     using var cmd = new NpgsqlCommand(sql, conn);
 
     cmd.Parameters.AddWithValue("id", id);
 
-    await cmd.PrepareAsync();
-
     using var reader = await cmd.ExecuteReaderAsync();
+
+    if (!reader.HasRows) return Enumerable.Empty<Transacao>();
+
+    var transacoes = new List<Transacao>(10);
 
     while (await reader.ReadAsync())
     {
@@ -104,8 +102,6 @@ public class ClientService : IClientService
     cmd.Parameters.AddWithValue("tipo", request.Tipo);
     cmd.Parameters.AddWithValue("descricao", request.Descricao);
     cmd.Parameters.AddWithValue("realizada_em", DateTime.UtcNow);
-
-    await cmd.PrepareAsync();
 
     using var reader = await cmd.ExecuteReaderAsync();
 
