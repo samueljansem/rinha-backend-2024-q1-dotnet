@@ -10,7 +10,7 @@ RUN dotnet restore
 COPY . ./
 RUN dotnet publish -c Release -o out
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0.2-alpine3.19
+FROM mcr.microsoft.com/dotnet/runtime-deps:8.0.2-alpine3.19
 WORKDIR /app
 COPY --from=build-env /app/out .
 ENTRYPOINT ["./RinhaBackend"]
