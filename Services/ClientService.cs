@@ -31,20 +31,16 @@ public class ClientService : IClientService
 
     using var reader = await cmd.ExecuteReaderAsync();
 
-    if (await reader.ReadAsync())
+    if (!reader.HasRows) return null;
+
+    var cliente = new Cliente
     {
+      Id = id,
+      Saldo = reader.GetInt32(0),
+      Limite = reader.GetInt32(1)
+    };
 
-      var cliente = new Cliente
-      {
-        Id = id,
-        Saldo = reader.GetInt32(0),
-        Limite = reader.GetInt32(1)
-      };
-
-      return cliente;
-    }
-
-    return null;
+    return cliente;
   }
 
   public async Task<IEnumerable<Transacao>> GetTransacoes(NpgsqlConnection conn, int id)
@@ -105,21 +101,14 @@ public class ClientService : IClientService
 
     using var reader = await cmd.ExecuteReaderAsync();
 
-    if (!await reader.ReadAsync()) return null;
+    if (!reader.HasRows) return null;
 
-    try
+    var response = new CriarTransacaoResponse
     {
-      var response = new CriarTransacaoResponse
-      {
-        Saldo = reader.GetInt32(0),
-        Limite = reader.GetInt32(1)
-      };
+      Saldo = reader.GetInt32(0),
+      Limite = reader.GetInt32(1)
+    };
 
-      return response;
-    }
-    catch (InvalidCastException)
-    {
-      return null;
-    }
+    return response;
   }
 }
