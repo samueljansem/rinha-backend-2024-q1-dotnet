@@ -31,16 +31,19 @@ public class ClientService : IClientService
 
     using var reader = await cmd.ExecuteReaderAsync();
 
-    if (!reader.HasRows) return null;
-
-    var cliente = new Cliente
+    if (await reader.ReadAsync())
     {
-      Id = id,
-      Saldo = reader.GetInt32(0),
-      Limite = reader.GetInt32(1)
-    };
+      var cliente = new Cliente
+      {
+        Id = id,
+        Saldo = reader.GetInt32(0),
+        Limite = reader.GetInt32(1)
+      };
 
-    return cliente;
+      return cliente;
+    }
+
+    return null;
   }
 
   public async Task<IEnumerable<Transacao>> GetTransacoes(NpgsqlConnection conn, int id)
@@ -89,26 +92,44 @@ public class ClientService : IClientService
 
   public async Task<CriarTransacaoResponse?> CriarTransacaoEAtualizarSaldo(NpgsqlConnection conn, int id, CriarTransacaoRequest request)
   {
-    var sql = "CALL criar_transacao_e_atualizar_saldo(@id_cliente, @valor, @tipo, @descricao, @realizada_em);";
-
-    using var cmd = new NpgsqlCommand(sql, conn);
-
-    cmd.Parameters.AddWithValue("id_cliente", id);
-    cmd.Parameters.AddWithValue("valor", request.Valor);
-    cmd.Parameters.AddWithValue("tipo", request.Tipo);
-    cmd.Parameters.AddWithValue("descricao", request.Descricao);
-    cmd.Parameters.AddWithValue("realizada_em", DateTime.UtcNow);
-
-    using var reader = await cmd.ExecuteReaderAsync();
-
-    if (!reader.HasRows) return null;
-
-    var response = new CriarTransacaoResponse
+    try
     {
-      Saldo = reader.GetInt32(0),
-      Limite = reader.GetInt32(1)
-    };
+      var sql = "CALL criar_transacao_e_atualizar_saldo(@id_cliente, @valor, @tipo, @descricao, @realizada_em);";
 
-    return response;
+      using var cmd = new NpgsqlCommand(sql, conn);
+
+      cmd.Parameters.AddWithValue("id_cliente", id);
+      cmd.Parameters.AddWithValue("valor", request.Valor);
+      cmd.Parameters.AddWithValue("tipo", request.Tipo);
+      cmd.Parameters.AddWithValue("descricao", request.Descricao);
+      cmd.Parameters.AddWithValue("realizada_em", DateTime.UtcNow);
+
+      using var reader = await cmd.ExecuteReaderAsync();
+
+      if (await reader.ReadAsync())
+      {
+        try
+        {
+          var response = new CriarTransacaoResponse
+          {
+            Saldo = reader.GetInt32(0),
+            Limite = reader.GetInt32(1)
+          };
+
+          return response;
+        }
+        catch (InvalidCastException)
+        {
+          return null;
+        }
+      }
+
+      return null;
+    }
+    catch
+    {
+      Console.WriteLine($"Erro ao criar transação para cliente {id}");
+      throw;
+    }
   }
 }
